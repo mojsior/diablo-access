@@ -878,6 +878,11 @@ if(SCREEN_READER_INTEGRATION)
   list(APPEND libdevilutionx_SRCS
     utils/screen_reader.cpp
   )
+  if(ANDROID)
+    list(APPEND libdevilutionx_SRCS
+      utils/android_accessibility.cpp
+    )
+  endif()
 endif()
 
 if(DEVILUTIONX_SCREENSHOT_FORMAT STREQUAL DEVILUTIONX_SCREENSHOT_FORMAT_PCX)

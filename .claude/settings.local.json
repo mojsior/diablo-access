@@ -1,0 +1,15 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(dir:*)",
+      "Bash(findstr:*)",
+      "Bash(where:*)",
+      "Bash(ls:*)",
+      "Bash(.github/workflows/Android.yml)",
+      "Bash(./gradlew assembleDebug:*)",
+      "Bash(java:*)",
+      "Bash(winget search:*)",
+      "Bash(winget:*)"
+    ]
+  }
+}
