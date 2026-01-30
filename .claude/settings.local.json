@@ -9,7 +9,9 @@
       "Bash(./gradlew assembleDebug:*)",
       "Bash(java:*)",
       "Bash(winget search:*)",
-      "Bash(winget:*)"
+      "Bash(winget:*)",
+      "Bash(gh workflow run:*)",
+      "Bash(gh run list:*)"
     ]
   }
 }
