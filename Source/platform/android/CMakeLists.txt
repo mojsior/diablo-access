@@ -1,14 +1,14 @@
 include(functions/devilutionx_library)
 add_devilutionx_object_library(libdevilutionx_android android.cpp)
 
-# Link JNI library for Android accessibility features
-find_package(log REQUIRED)
+# Link JNI library for Android accessibility features (NDK log)
+find_library(log-lib log)
 
-target_link_dependencies(libdevilutionx_android PUBLIC
+target_link_libraries(libdevilutionx_android PUBLIC
   DevilutionX::SDL
   libdevilutionx_init
   libdevilutionx_mpq
-  log
+  ${log-lib}
 )
 
 # Enable screen reader integration for Android
