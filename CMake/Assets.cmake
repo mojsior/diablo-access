@@ -260,67 +260,143 @@ if(NOT UNPACKED_MPQS)
 endif()
 
 if(NOT USE_SDL1 AND NOT VITA)
+
   list(APPEND devilutionx_assets
+
     ui_art/button.png
+
     ui_art/directions2.png
+
     ui_art/directions.png
+
     ui_art/menu-levelup.png
+
     ui_art/menu.png)
+
 endif()
 
+
+
+
+
+
+
 if(APPLE)
+
+
+
+
+
+
+
   foreach(asset_file ${devilutionx_assets})
+
+
+
+
+
+
+
     set(src "${CMAKE_CURRENT_SOURCE_DIR}/assets/${asset_file}")
+
+
+
+
+
+
+
     get_filename_component(_asset_dir "${asset_file}" DIRECTORY)
+
+
+
+
+
+
+
     set_source_files_properties("${src}" PROPERTIES
+
+
+
+
+
+
+
       MACOSX_PACKAGE_LOCATION "Resources/${_asset_dir}"
+
+
+
+
+
+
+
       XCODE_EXPLICIT_FILE_TYPE compiled)
+
+
+
+
+
+
+
     target_sources(${BIN_TARGET} PRIVATE "${src}")
+
+
+
+
+
+
+
   endforeach()
-else()
-  # Copy assets to the build assets subdirectory. This serves two purposes:
-  # - If smpq is installed, devilutionx.mpq is built from these files.
-  # - If smpq is not installed, the game will load the assets directly from this directory.
-  copy_files(
-    FILES ${devilutionx_assets}
-    SRC_PREFIX "assets/"
-    OUTPUT_DIR "${DEVILUTIONX_ASSETS_OUTPUT_DIRECTORY}"
-    OUTPUT_VARIABLE DEVILUTIONX_OUTPUT_ASSETS_FILES)
-  set(DEVILUTIONX_MPQ_FILES ${devilutionx_assets})
-  if(devilutionx_lang_targets)
-    foreach(lang ${devilutionx_langs})
-      list(APPEND DEVILUTIONX_MPQ_FILES "${lang}.gmo")
-    endforeach()
-  endif()
 
-  add_trim_target(devilutionx_trim_assets
-    ROOT_FOLDER "${DEVILUTIONX_ASSETS_OUTPUT_DIRECTORY}"
-    CURRENT_FILES ${DEVILUTIONX_MPQ_FILES})
-  if(devilutionx_lang_targets)
-    add_dependencies(devilutionx_trim_assets ${devilutionx_lang_targets})
-  endif()
 
-  if(BUILD_ASSETS_MPQ)
-    if(TARGET_PLATFORM STREQUAL "dos")
-      set(DEVILUTIONX_MPQ "${CMAKE_CURRENT_BINARY_DIR}/devx.mpq")
-    else()
-      set(DEVILUTIONX_MPQ "${CMAKE_CURRENT_BINARY_DIR}/devilutionx.mpq")
-    endif()
-    add_custom_command(
-      COMMENT "Building devilutionx.mpq"
-      OUTPUT "${DEVILUTIONX_MPQ}"
-      COMMAND ${CMAKE_COMMAND} -E remove -f "${DEVILUTIONX_MPQ}"
-      COMMAND ${SMPQ} -A -M 1 -C BZIP2 -c "${DEVILUTIONX_MPQ}" ${DEVILUTIONX_MPQ_FILES}
-      WORKING_DIRECTORY "${DEVILUTIONX_ASSETS_OUTPUT_DIRECTORY}"
-      DEPENDS ${TRIM_COMMAND_BYPRODUCT} ${DEVILUTIONX_OUTPUT_ASSETS_FILES} ${devilutionx_lang_targets} ${devilutionx_lang_files}
-      VERBATIM)
-    add_custom_target(devilutionx_mpq DEPENDS "${DEVILUTIONX_MPQ}")
-    add_dependencies(devilutionx_mpq devilutionx_trim_assets)
-    add_dependencies(libdevilutionx devilutionx_mpq)
+
+
+
+
+
+endif()
+
+# Copy assets to the build assets subdirectory. This serves two purposes:
+# - If smpq is installed, devilutionx.mpq is built from these files.
+# - If smpq is not installed, the game will load the assets directly from this directory.
+copy_files(
+  FILES ${devilutionx_assets}
+  SRC_PREFIX "assets/"
+  OUTPUT_DIR "${DEVILUTIONX_ASSETS_OUTPUT_DIRECTORY}"
+  OUTPUT_VARIABLE DEVILUTIONX_OUTPUT_ASSETS_FILES)
+set(DEVILUTIONX_MPQ_FILES ${devilutionx_assets})
+if(devilutionx_lang_targets)
+  foreach(lang ${devilutionx_langs})
+    list(APPEND DEVILUTIONX_MPQ_FILES "${lang}.gmo")
+  endforeach()
+endif()
+
+add_trim_target(devilutionx_trim_assets
+  ROOT_FOLDER "${DEVILUTIONX_ASSETS_OUTPUT_DIRECTORY}"
+  CURRENT_FILES ${DEVILUTIONX_MPQ_FILES})
+if(devilutionx_lang_targets)
+  add_dependencies(devilutionx_trim_assets ${devilutionx_lang_targets})
+endif()
+
+if(BUILD_ASSETS_MPQ AND NOT APPLE) # Only build MPQ if not on Apple
+  if(TARGET_PLATFORM STREQUAL "dos")
+    set(DEVILUTIONX_MPQ "${CMAKE_CURRENT_BINARY_DIR}/devx.mpq")
   else()
-    add_custom_target(devilutionx_copied_assets DEPENDS ${DEVILUTIONX_OUTPUT_ASSETS_FILES} ${devilutionx_lang_targets})
-    add_dependencies(devilutionx_copied_assets devilutionx_trim_assets)
-    add_dependencies(libdevilutionx devilutionx_copied_assets)
+    set(DEVILUTIONX_MPQ "${CMAKE_CURRENT_BINARY_DIR}/devilutionx.mpq")
   endif()
+  add_custom_command(
+    COMMENT "Building devilutionx.mpq"
+    OUTPUT "${DEVILUTIONX_MPQ}"
+    COMMAND ${CMAKE_COMMAND} -E remove -f "${DEVILUTIONX_MPQ}"
+    COMMAND ${SMPQ} -A -M 1 -C BZIP2 -c "${DEVILUTIONX_MPQ}" ${DEVILUTIONX_MPQ_FILES}
+    WORKING_DIRECTORY "${DEVILUTIONX_ASSETS_OUTPUT_DIRECTORY}"
+    DEPENDS ${TRIM_COMMAND_BYPRODUCT} ${DEVILUTIONX_OUTPUT_ASSETS_FILES} ${devilutionx_lang_targets} ${devilutionx_lang_files}
+    VERBATIM)
+      add_custom_target(devilutionx_mpq DEPENDS "${DEVILUTIONX_MPQ}")
+    add_dependencies(devilutionx_mpq devilutionx_trim_assets)
+  add_dependencies(libdevilutionx devilutionx_mpq)
+else()
+  add_custom_target(devilutionx_copied_assets DEPENDS ${DEVILUTIONX_OUTPUT_ASSETS_FILES} ${devilutionx_lang_targets})
+  add_dependencies(devilutionx_copied_assets devilutionx_trim_assets)
+  add_dependencies(libdevilutionx devilutionx_copied_assets)
 endif()
 

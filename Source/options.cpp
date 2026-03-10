@@ -41,6 +41,7 @@
 #include "utils/file_util.h"
 #include "utils/ini.hpp"
 #include "utils/language.h"
+#include "utils/screen_reader.hpp" // Required for speech rate adjustment functions
 #include "utils/log.hpp"
 #include "utils/logged_fstream.hpp"
 #include "utils/paths.h"
@@ -416,6 +417,33 @@ void OptionEntryIntBase::SetActiveListIndex(size_t index)
 	this->NotifyValueChanged();
 }
 
+OptionEntryType OptionEntryFloat::GetType() const
+{
+	return OptionEntryType::List; // Treat float as list for UI purposes
+}
+
+std::string_view OptionEntryFloat::GetValueDescription() const
+{
+	formattedValueCache = fmt::format("{:.2f}", value); // Store in cache
+	return formattedValueCache; // Return view of cached string
+}
+
+void OptionEntryFloat::LoadFromIni(std::string_view category)
+{
+	value = ini->getFloat(category, key, defaultValue);
+	// Ensure loaded value is within the entryValues for display
+	if (c_find(entryValues, value) == entryValues.end() && !entryValues.empty()) {
+		// If not a predefined value, insert it to maintain sorted order for display logic
+		entryValues.insert(std::lower_bound(entryValues.begin(), entryValues.end(), value), value);
+		entryNames.clear(); // Clear cached names as values changed
+	}
+}
+
+void OptionEntryFloat::SaveToIni(std::string_view category) const
+{
+	ini->set(category, key, value);
+}
+
 std::string_view OptionCategoryBase::GetKey() const
 {
 	return key;
@@ -520,6 +548,7 @@ AudioOptions::AudioOptions()
     , channels("Channels", OptionEntryFlags::CantChangeInGame, N_("Channels"), N_("Number of output channels."), DEFAULT_AUDIO_CHANNELS, { 1, 2 })
     , bufferSize("Buffer Size", OptionEntryFlags::CantChangeInGame, N_("Buffer Size"), N_("Buffer size (number of frames per channel)."), DEFAULT_AUDIO_BUFFER_SIZE, { 1024, 2048, 5120 })
     , resamplingQuality("Resampling Quality", OptionEntryFlags::CantChangeInGame, N_("Resampling Quality"), N_("Quality of the resampler, from 0 (lowest) to 5 (highest)."), DEFAULT_AUDIO_RESAMPLING_QUALITY, { 0, 1, 2, 3, 4, 5 })
+    , speechRate("Speech Rate", OptionEntryFlags::None, N_("Speech Rate"), N_("Rate of speech synthesis."), 1.0F, { 0.5F, 0.75F, 1.0F, 1.25F, 1.5F, 1.75F, 2.0F })
 {
 }
 std::vector<OptionEntryBase *> AudioOptions::GetEntries()
@@ -540,6 +569,7 @@ std::vector<OptionEntryBase *> AudioOptions::GetEntries()
 #if SDL_VERSION_ATLEAST(2, 0, 0)
 		&device,
 #endif
+        &speechRate,
 	};
 	// clang-format on
 }
@@ -1148,6 +1178,17 @@ KeymapperOptions::KeymapperOptions()
 	keyIDToKeyName.emplace(SDLK_KP_MULTIPLY, "KEYPAD *");
 	keyIDToKeyName.emplace(SDLK_KP_ENTER, "KEYPAD ENTER");
 	keyIDToKeyName.emplace(SDLK_KP_PERIOD, "KEYPAD DECIMAL");
+
+#ifdef SCREEN_READER_INTEGRATION
+	AddAction("IncreaseSpeechRate", N_("Increase Speech Rate"), N_("Increase the speech rate of the screen reader."), SDLK_UNKNOWN,
+		[]() {
+			IncreaseSpeechRate();
+		});
+	AddAction("DecreaseSpeechRate", N_("Decrease Speech Rate"), N_("Decrease the speech rate of the screen reader."), SDLK_UNKNOWN,
+		[]() {
+			DecreaseSpeechRate();
+		});
+#endif
 
 	keyNameToKeyID.reserve(keyIDToKeyName.size());
 	for (const auto &[key, value] : keyIDToKeyName) {
