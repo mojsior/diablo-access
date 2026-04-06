@@ -24,6 +24,11 @@
 
 #include <ankerl/unordered_dense.h>
 #include <function_ref.hpp>
+#include <vector>     // for std::vector
+#include <algorithm>  // for std::lower_bound
+#include <cmath>      // for std::abs
+#include <fmt/format.h> // for fmt::format
+#include <type_traits> // for std::is_floating_point_v
 
 #include "appfat.h"
 #include "controls/controller_buttons.h"
@@ -31,7 +36,9 @@
 #include "engine/sound_defs.hpp"
 #include "pack.h"
 #include "quick_messages.hpp"
+#include "utils/algorithm/container.hpp" // For c_find
 #include "utils/enum_traits.h"
+#include "utils/str_cat.hpp" // For StrCat
 #include "utils/string_view_hash.hpp"
 
 namespace devilution {
@@ -42,6 +49,8 @@ namespace devilution {
 #ifndef DEFAULT_HEIGHT
 #define DEFAULT_HEIGHT 480
 #endif
+
+
 
 enum class StartUpGameMode : uint8_t {
 	/** @brief If hellfire is present, asks the user what game they want to start. */
@@ -304,6 +313,99 @@ public:
 	}
 };
 
+// New templated base class for numeric options
+template <typename T>
+class OptionEntryNumericBase : public OptionEntryListBase {
+public:
+	explicit OptionEntryNumericBase(std::string_view key, OptionEntryFlags flags, const char *name, const char *description, T defaultValue, std::vector<T> entryValues = {})
+	    : OptionEntryListBase(key, flags, name, description)
+	    , defaultValue(defaultValue)
+	    , value(defaultValue)
+	    , entryValues(std::move(entryValues))
+	{
+	}
+
+	virtual void LoadFromIni(std::string_view category) override = 0;
+	virtual void SaveToIni(std::string_view category) const override = 0;
+
+	void SetValueInternal(T newValue)
+	{
+		this->value = newValue;
+		this->NotifyValueChanged();
+	}
+
+	T GetValue() const
+	{
+		return value;
+	}
+
+	size_t GetListSize() const override
+	{
+		return entryValues.size();
+	}
+
+	std::string_view GetListDescription(size_t index) const override
+	{
+		if (entryNames.empty() || entryNames.size() != entryValues.size()) { // Rebuild names if needed
+			entryNames.clear();
+			for (auto entryValue : entryValues) {
+				// Explicitly format numeric values to avoid ambiguity with StrCat overloads
+				if constexpr (std::is_floating_point_v<T>) {
+					entryNames.push_back(fmt::format("{:.2f}", entryValue));
+				} else {
+					entryNames.push_back(StrCat(entryValue));
+				}
+			}
+		}
+		return entryNames[index];
+	}
+
+	size_t GetActiveListIndex() const override
+	{
+		// Find closest value if exact match not found
+		auto it = std::lower_bound(entryValues.begin(), entryValues.end(), value);
+		if (it == entryValues.end() || *it != value) {
+			// If not found, insert to maintain sorted order for description
+			size_t index = std::distance(entryValues.begin(), it);
+			if (index > 0) { // If not first element, check if closer to previous
+				if (std::abs(value - entryValues[index - 1]) < std::abs(value - *it)) {
+					it--;
+					index--;
+				}
+			}
+			return index;
+		}
+		return std::distance(entryValues.begin(), it);
+	}
+
+	void SetActiveListIndex(size_t index) override
+	{
+		this->value = entryValues[index];
+		this->NotifyValueChanged();
+	}
+
+protected:
+	T defaultValue;
+	T value;
+	std::vector<T> entryValues;
+	mutable std::vector<std::string> entryNames; // Cached string representations
+};
+
+class OptionEntryFloat : public OptionEntryNumericBase<float> {
+public:
+	explicit OptionEntryFloat(std::string_view key, OptionEntryFlags flags, const char *name, const char *description, float defaultValue, std::vector<float> entryValues = {})
+	    : OptionEntryNumericBase(key, flags, name, description, defaultValue, std::move(entryValues))
+	{
+	}
+
+	virtual OptionEntryType GetType() const override;
+	mutable std::string formattedValueCache; // Add this private member
+	virtual std::string_view GetValueDescription() const override;
+
+	void LoadFromIni(std::string_view category) override;
+	void SaveToIni(std::string_view category) const override;
+};
+
 class OptionEntryLanguageCode : public OptionEntryListBase {
 public:
 	OptionEntryLanguageCode();
@@ -510,6 +612,8 @@ struct AudioOptions : OptionCategoryBase {
 	OptionEntryInt<std::uint8_t> resamplingQuality;
 	/** @brief Audio device. */
 	OptionEntryAudioDevice device;
+    /** @brief Speech synthesis rate. */
+    OptionEntryFloat speechRate;
 };
 
 struct GraphicsOptions : OptionCategoryBase {

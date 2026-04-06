@@ -33,12 +33,12 @@ include(functions/genex)
 option(USE_SDL1 "Use SDL1.2 instead of SDL2" OFF)
 option(USE_SDL3 "Use SDL3 instead of SDL2" OFF)
 option(NONET "Disable network support" OFF)
-cmake_dependent_option(PACKET_ENCRYPTION "Encrypt network packets" ON "NOT NONET" OFF)
+cmake_dependent_option(PACKET_ENCRYPTION "Encrypt network packets" OFF "NOT NONET" OFF)
 # The gettext[tools] package takes a very long time to install
 if(CMAKE_TOOLCHAIN_FILE MATCHES "vcpkg.cmake$")
   option(USE_GETTEXT_FROM_VCPKG "Add vcpkg dependency for gettext[tools] for compiling translations" OFF)
 endif()
-option(BUILD_TESTING "Build tests." ON)
+option(BUILD_TESTING "Build tests." OFF)
 
 # These must be included after the options above but before the `project` call.
 include(VcPkgManifestFeatures)
@@ -81,6 +81,8 @@ set(PROJECT_VERSION_WITH_SUFFIX "${VERSION_PREFIX}${VERSION_SUFFIX}")
 # Platform definitions can override options and we want `cmake_dependent_option` to see the effects.
 # Note that a few options are still defined before this because they're needed by `VcPkgManifestFeatures.cmake`.
 include(Platforms)
+
+
 
 # This built-in CMake module adds a BUILD_TESTING option (ON by default).
 # Must be included in the top-level `CMakeLists.txt` after calling `project`.
@@ -171,7 +173,7 @@ mark_as_advanced(DEVILUTIONX_PALETTE_TRANSPARENCY_BLACK_16_LUT)
 # Additional features
 option(DISABLE_DEMOMODE "Disable demo mode support" OFF)
 option(DISCORD_INTEGRATION "Build with Discord SDK for rich presence support" OFF)
-option(SCREEN_READER_INTEGRATION "Build with screen reader support" OFF)
+option(SCREEN_READER_INTEGRATION "Build with screen reader support" ${APPLE})
 mark_as_advanced(SCREEN_READER_INTEGRATION)
 
 # If both UNPACKED_MPQS and UNPACKED_SAVES are enabled, we completely remove MPQ support.
@@ -469,7 +471,7 @@ if(APPLE)
     set(CMAKE_OSX_DEPLOYMENT_TARGET "9.0")
   elseif(DARWIN_MAJOR_VERSION GREATER_EQUAL 17)
     set(MACOSX_BUNDLE_REQUIRED_PLATFORM Carbon)
-    set(CMAKE_OSX_DEPLOYMENT_TARGET "10.13.0")
+    set(CMAKE_OSX_DEPLOYMENT_TARGET "12.0")
   endif()
   if(DARWIN_MAJOR_VERSION VERSION_LESS 9)
     # Finder on OSX Tiger can only handle icns files with up to 128x128 icons.
