@@ -16,7 +16,7 @@
 namespace devilution {
 
 #if !defined(_WIN32) && !defined(__APPLE__)
-SPDConnection *Speechd;
+SPDConnection *Speechd = nullptr;
 #endif
 
 void InitializeScreenReader()
@@ -37,7 +37,10 @@ void ShutDownScreenReader()
 #elif defined(__APPLE__)
 	osx_shutdown_speech();
 #else
-	spd_close(Speechd);
+	if (Speechd != nullptr) {
+		spd_close(Speechd);
+		Speechd = nullptr;
+	}
 #endif
 }
 
@@ -57,7 +60,8 @@ void SpeakText(std::string_view text, bool force)
 #elif defined(__APPLE__)
 	osx_speak_text(text, force);
 #else
-	spd_say(Speechd, SPD_TEXT, SpokenText.c_str());
+	if (Speechd != nullptr)
+		spd_say(Speechd, SPD_TEXT, SpokenText.c_str());
 #endif
 }
 
