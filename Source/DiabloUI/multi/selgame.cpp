@@ -35,6 +35,7 @@
 #include "options.h"
 #include "storm/storm_net.hpp"
 #include "utils/language.h"
+#include "utils/screen_reader.hpp"
 #include "utils/str_cat.hpp"
 #include "utils/ui_fwd.h"
 #include "utils/utf8.hpp"
@@ -96,6 +97,22 @@ bool IsGameCompatible(const GameData &data)
 	    && data.versionPatch == PROJECT_VERSION_PATCH
 	    && data.programid == GAME_ID);
 	return false;
+}
+
+/**
+ * @brief Insert spaces between characters so screen readers spell out IDs
+ * (e.g. random ZeroTier game names) letter by letter instead of trying to
+ * pronounce them as a word.
+ */
+std::string SpellOutForSpeech(std::string_view text)
+{
+	std::string result;
+	for (size_t i = 0; i < text.size(); ++i) {
+		if (i > 0)
+			result += ' ';
+		result += text[i];
+	}
+	return result;
 }
 
 static std::string GetErrorMessageIncompatibility(const GameData &data)
@@ -238,13 +255,30 @@ void selgame_GameSelection_Focus(size_t value)
 	case 1:
 		CopyUtf8(selgame_Description, _("Create a new public game that anyone can join with a difficulty setting of your choice."), sizeof(selgame_Description));
 		break;
-	case 2:
+	case 2: {
+		std::string spoken = std::string(item.m_text.str());
 		if (provider == SELCONN_ZT) {
 			CopyUtf8(selgame_Description, _("Enter Game ID to join a game already in progress."), sizeof(selgame_Description));
+			spoken.append("\n");
+			spoken.append(_("Enter Game ID to join a game already in progress."));
+			spoken.append("\n");
+			// The "Public Games" header and its "Loading..."/"None" placeholder
+			// rows below this item are disabled and unreachable by keyboard/
+			// screen-reader navigation, so this is the only way a player can
+			// find out whether any public games are actually visible yet.
+			if (Gamelist.empty()) {
+				spoken.append(_("No public games found yet."));
+			} else {
+				spoken.append(fmt::format(fmt::runtime(_(/* TRANSLATORS: {:d} means: number of public games currently visible in the list below. */ "{:d} public game(s) found below.")), Gamelist.size()));
+			}
 		} else {
 			CopyUtf8(selgame_Description, _("Enter an IP or a hostname to join a game already in progress."), sizeof(selgame_Description));
+			spoken.append("\n");
+			spoken.append(_("Enter an IP or a hostname to join a game already in progress."));
 		}
+		UiSetSpokenTextOverride(std::move(spoken));
 		break;
+	}
 	default:
 		const GameInfo &gameInfo = Gamelist[item.m_value - 3];
 		std::string infoString = std::string(_("Join the public game already in progress."));
@@ -297,6 +331,25 @@ void selgame_GameSelection_Focus(size_t value)
 			infoString.append(GetErrorMessageIncompatibility(gameInfo.gameData));
 		}
 		CopyUtf8(selgame_Description, infoString, sizeof(selgame_Description));
+
+		{
+			std::string spoken = fmt::format(fmt::runtime(_(/* TRANSLATORS: {:s} means: the game's ID, spelled out letter by letter. */ "Game ID: {:s}")), SpellOutForSpeech(gameInfo.name));
+			spoken.append("\n\n");
+			spoken.append(infoString);
+
+			// The periodic public-game-list refresh re-focuses the currently
+			// highlighted entry every few seconds even when the player hasn't
+			// moved. Force the announcement only when the highlighted game
+			// actually changed, so a stale identical announcement elsewhere
+			// in the shared speech dedup cache can't silently swallow it, but
+			// idling on the same entry doesn't repeat it.
+			static std::string lastAnnouncedGameId;
+			if (gameInfo.name != lastAnnouncedGameId) {
+				lastAnnouncedGameId = gameInfo.name;
+				SpeakText(spoken, true);
+			}
+			UiSetSpokenTextOverride(std::move(spoken));
+		}
 		break;
 	}
 	CopyUtf8(selgame_Description, WordWrapString(selgame_Description, DESCRIPTION_WIDTH), sizeof(selgame_Description));
@@ -704,6 +757,9 @@ void selgame_Password_Select(size_t /*value*/)
 	GameData gameInitInfo = *m_game_data;
 	gameInitInfo.swapLE();
 	if (SNetCreateGame(nullptr, gamePassword, reinterpret_cast<char *>(&gameInitInfo), sizeof(gameInitInfo), gdwPlayerId)) {
+		if (provider == SELCONN_ZT) {
+			SpeakText(fmt::format(fmt::runtime(_(/* TRANSLATORS: {:s} means: the game's ID, spelled out letter by letter. */ "Game created. Your game ID is: {:s}")), SpellOutForSpeech(GameName)), true);
+		}
 		UiInitList_clear();
 		selgame_endMenu = true;
 	} else {
