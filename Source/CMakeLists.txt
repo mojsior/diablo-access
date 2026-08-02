@@ -999,8 +999,7 @@ endif()
 
 if(SCREEN_READER_INTEGRATION)
   if(WIN32)
-    target_compile_definitions(libdevilutionx PRIVATE Tolk)
-    target_link_libraries(libdevilutionx PUBLIC Tolk)
+    target_link_libraries(libdevilutionx PUBLIC prism::prism)
   elseif(ANDROID)
     # Android uses native accessibility API, no external library needed
   else()

@@ -419,23 +419,32 @@ if(WIN32 AND NOT ANDROID AND NOT UWP_LIB)
     COMMAND ${CMAKE_COMMAND} -E make_directory "${DEVILUTIONX_RELEASE_DIR}"
     COMMAND ${CMAKE_COMMAND} -E copy_if_different "$<TARGET_FILE:${BIN_TARGET}>" "${DEVILUTIONX_RELEASE_DIR}/"
   )
-  if(SCREEN_READER_INTEGRATION AND TARGET Tolk)
-    add_custom_command(TARGET ${BIN_TARGET} POST_BUILD
-      COMMAND ${CMAKE_COMMAND} -E copy_if_different "$<TARGET_FILE:Tolk>" "${DEVILUTIONX_RELEASE_DIR}/"
-    )
-    if(CMAKE_SIZEOF_VOID_P EQUAL 4)
-      set(_tolk_lib_dir "${Tolk_SOURCE_DIR}/libs/x86")
-      set(_tolk_extra_files SAAPI32.dll ZDSRAPI.dll ZDSRAPI.ini dolapi32.dll nvdaControllerClient32.dll)
-    else()
-      set(_tolk_lib_dir "${Tolk_SOURCE_DIR}/libs/x64")
-      set(_tolk_extra_files SAAPI64.dll ZDSRAPI_x64.dll ZDSRAPI.ini nvdaControllerClient64.dll)
-    endif()
-    foreach(_tolk_file IN LISTS _tolk_extra_files)
-      if(EXISTS "${_tolk_lib_dir}/${_tolk_file}")
+  if(SCREEN_READER_INTEGRATION AND TARGET prism)
+    foreach(_screen_reader_runtime_dir IN ITEMS
+        "${DEVILUTIONX_RELEASE_DIR}"
+        "$<TARGET_FILE_DIR:${BIN_TARGET}>")
+      add_custom_command(TARGET ${BIN_TARGET} POST_BUILD
+        COMMAND ${CMAKE_COMMAND} -E copy_if_different "$<TARGET_FILE:prism>" "${_screen_reader_runtime_dir}/"
+      )
+    endforeach()
+    foreach(_old_screen_reader_runtime IN ITEMS
+        Tolk.dll
+        libTolk.dll
+        SAAPI32.dll
+        SAAPI64.dll
+        ZDSRAPI.dll
+        ZDSRAPI_x64.dll
+        ZDSRAPI.ini
+        dolapi32.dll
+        nvdaControllerClient32.dll
+        nvdaControllerClient64.dll)
+      foreach(_screen_reader_runtime_dir IN ITEMS
+          "${DEVILUTIONX_RELEASE_DIR}"
+          "$<TARGET_FILE_DIR:${BIN_TARGET}>")
         add_custom_command(TARGET ${BIN_TARGET} POST_BUILD
-          COMMAND ${CMAKE_COMMAND} -E copy_if_different "${_tolk_lib_dir}/${_tolk_file}" "${DEVILUTIONX_RELEASE_DIR}/"
+          COMMAND ${CMAKE_COMMAND} -E rm -f "${_screen_reader_runtime_dir}/${_old_screen_reader_runtime}"
         )
-      endif()
+      endforeach()
     endforeach()
   endif()
   if(MINGW_CROSS)
@@ -654,8 +663,8 @@ if(CPACK AND (APPLE OR BUILD_ASSETS_MPQ OR SRC_DIST))
       )
     endif()
 
-    if(SCREEN_READER_INTEGRATION)
-      install(FILES "${Tolk_BINARY_DIR}/libTolk.dll"
+    if(SCREEN_READER_INTEGRATION AND TARGET prism)
+      install(FILES "$<TARGET_FILE:prism>"
         DESTINATION "."
       )
     endif()

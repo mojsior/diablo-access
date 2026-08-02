@@ -36,6 +36,10 @@
 				"DISABLE_LTO": {
 					"type": "BOOL",
 					"value": "ON"
+				},
+				"SCREEN_READER_INTEGRATION": {
+					"type": "BOOL",
+					"value": "ON"
 				}
 			}
 		},
