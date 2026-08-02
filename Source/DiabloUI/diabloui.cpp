@@ -59,6 +59,7 @@
 #include "utils/display.h"
 #include "utils/enum_traits.h"
 #include "utils/is_of.hpp"
+#include "utils/language.h"
 #include "utils/screen_reader.hpp"
 #include "utils/sdl_compat.h"
 #include "utils/sdl_geometry.h"
@@ -294,8 +295,16 @@ void UiInitList(void (*fnFocus)(size_t value), void (*fnSelect)(size_t value), v
 			    .cursor = &pItemUIEdit->m_cursor,
 			    .maxLength = pItemUIEdit->m_max_length,
 			});
-			if (!pItemUIEdit->m_hint.empty())
+			if (pItemUIEdit->m_value != nullptr && pItemUIEdit->m_value[0] != '\0') {
+				// The field can start pre-filled (e.g. a remembered previous
+				// game ID/password), which is invisible to a screen reader
+				// user unless we announce it explicitly alongside the hint.
+				SpeakText(fmt::format(fmt::runtime(_(/* TRANSLATORS: {:s} means: the field's hint/label, e.g. "Enter Game ID". {:s} means: the field's current pre-filled text. */ "{:s}, currently: {:s}")),
+				              pItemUIEdit->m_hint, pItemUIEdit->m_value),
+				    /*force=*/true);
+			} else if (!pItemUIEdit->m_hint.empty()) {
 				SpeakText(pItemUIEdit->m_hint, /*force=*/true);
+			}
 		} else if (item->IsType(UiType::List)) {
 			auto *uiList = static_cast<UiList *>(item.get());
 			SelectedItemMax = std::max(uiList->m_vecItems.size() - 1, static_cast<size_t>(0));
