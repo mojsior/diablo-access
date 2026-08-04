@@ -415,18 +415,43 @@ set_relative_file_macro(${BIN_TARGET})
 # Copy Windows builds to build/Release for convenience.
 if(WIN32 AND NOT ANDROID AND NOT UWP_LIB)
   set(DEVILUTIONX_RELEASE_DIR "${PROJECT_SOURCE_DIR}/build/Release")
+  set(DEVILUTIONX_WIN32_RUNTIME_DLLS)
+  function(devilutionx_append_win32_runtime_dll target)
+    if(TARGET ${target})
+      get_target_property(_target_type ${target} TYPE)
+      if(_target_type STREQUAL "SHARED_LIBRARY" OR _target_type STREQUAL "MODULE_LIBRARY")
+        list(APPEND DEVILUTIONX_WIN32_RUNTIME_DLLS "$<TARGET_FILE:${target}>")
+        set(DEVILUTIONX_WIN32_RUNTIME_DLLS "${DEVILUTIONX_WIN32_RUNTIME_DLLS}" PARENT_SCOPE)
+      endif()
+    endif()
+  endfunction()
+  foreach(_runtime_target IN ITEMS
+      SDL2
+      SDL2_image
+      zlib
+      SheenBidi
+      prism)
+    devilutionx_append_win32_runtime_dll(${_runtime_target})
+  endforeach()
+  if(DEVILUTIONX_WIN32_RUNTIME_DLLS)
+    list(REMOVE_DUPLICATES DEVILUTIONX_WIN32_RUNTIME_DLLS)
+  endif()
   add_custom_command(TARGET ${BIN_TARGET} POST_BUILD
     COMMAND ${CMAKE_COMMAND} -E make_directory "${DEVILUTIONX_RELEASE_DIR}"
     COMMAND ${CMAKE_COMMAND} -E copy_if_different "$<TARGET_FILE:${BIN_TARGET}>" "${DEVILUTIONX_RELEASE_DIR}/"
   )
-  if(SCREEN_READER_INTEGRATION AND TARGET prism)
-    foreach(_screen_reader_runtime_dir IN ITEMS
+  if(DEVILUTIONX_WIN32_RUNTIME_DLLS)
+    foreach(_runtime_dir IN ITEMS
         "${DEVILUTIONX_RELEASE_DIR}"
         "$<TARGET_FILE_DIR:${BIN_TARGET}>")
       add_custom_command(TARGET ${BIN_TARGET} POST_BUILD
-        COMMAND ${CMAKE_COMMAND} -E copy_if_different "$<TARGET_FILE:prism>" "${_screen_reader_runtime_dir}/"
+        COMMAND ${CMAKE_COMMAND} -E make_directory "${_runtime_dir}"
+        COMMAND ${CMAKE_COMMAND} -E copy_if_different ${DEVILUTIONX_WIN32_RUNTIME_DLLS} "${_runtime_dir}/"
+        COMMAND_EXPAND_LISTS
       )
     endforeach()
+  endif()
+  if(SCREEN_READER_INTEGRATION AND TARGET prism)
     foreach(_old_screen_reader_runtime IN ITEMS
         Tolk.dll
         libTolk.dll
@@ -650,6 +675,11 @@ if(CPACK AND (APPLE OR BUILD_ASSETS_MPQ OR SRC_DIST))
         DESTINATION "."
       )
     endforeach()
+    if(DEVILUTIONX_WIN32_RUNTIME_DLLS)
+      install(FILES ${DEVILUTIONX_WIN32_RUNTIME_DLLS}
+        DESTINATION "."
+      )
+    endif()
 
     foreach(_SDL2_WIN32_LICENSE_PATH ${SDL2_WIN32_ALL_LICENSES})
       install(FILES "${_SDL2_WIN32_LICENSE_PATH}"
@@ -659,12 +689,6 @@ if(CPACK AND (APPLE OR BUILD_ASSETS_MPQ OR SRC_DIST))
 
     if(DISCORD_SHARED_LIB)
       install(FILES "${DISCORD_SHARED_LIB}"
-        DESTINATION "."
-      )
-    endif()
-
-    if(SCREEN_READER_INTEGRATION AND TARGET prism)
-      install(FILES "$<TARGET_FILE:prism>"
         DESTINATION "."
       )
     endif()

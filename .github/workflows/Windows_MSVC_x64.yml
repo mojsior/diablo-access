@@ -66,11 +66,4 @@ jobs:
         name: devilutionx.exe
         path: |
             build-ninja-vcpkg-relwithdebinfo/devilutionx.exe
-            build-ninja-vcpkg-relwithdebinfo/bz2.dll
-            build-ninja-vcpkg-relwithdebinfo/fmt.dll
-            build-ninja-vcpkg-relwithdebinfo/libpng16.dll
-            build-ninja-vcpkg-relwithdebinfo/libsodium.dll
-            build-ninja-vcpkg-relwithdebinfo/prism.dll
-            build-ninja-vcpkg-relwithdebinfo/SDL2.dll
-            build-ninja-vcpkg-relwithdebinfo/SDL2_image.dll
-            build-ninja-vcpkg-relwithdebinfo/zlib1.dll
+            build-ninja-vcpkg-relwithdebinfo/*.dll
