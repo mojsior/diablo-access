@@ -40,7 +40,6 @@
 #include "qol/stash.h"
 #include "quests.h"
 #include "stores.h"
-#include "utils/format_int.hpp"
 #include "utils/language.h"
 #include "utils/screen_reader.hpp"
 #include "utils/str_cat.hpp"
@@ -50,10 +49,10 @@ namespace devilution {
 namespace {
 
 /** Computes a rounded percentage (0--100) from a current and maximum value. */
-int ComputePercentage(int current, int maximum)
+int ComputePercentage(int64_t current, int64_t maximum)
 {
-	const int clamped = std::max(current, 0);
-	int percent = static_cast<int>((static_cast<int64_t>(clamped) * 100 + maximum / 2) / maximum);
+	const int64_t clamped = std::max<int64_t>(current, 0);
+	int percent = static_cast<int>((clamped * 100 + maximum / 2) / maximum);
 	return std::clamp(percent, 0, 100);
 }
 
@@ -96,12 +95,14 @@ void SpeakExperienceToNextLevelKeyPressed()
 	}
 
 	const uint32_t nextExperienceThreshold = myPlayer.getNextExperienceThreshold();
-	const uint32_t currentExperience = myPlayer._pExperience;
-	const uint32_t remainingExperience = currentExperience >= nextExperienceThreshold ? 0 : nextExperienceThreshold - currentExperience;
-	const int nextLevel = myPlayer.getCharacterLevel() + 1;
-	SpeakText(
-	    fmt::format(fmt::runtime(_("{:s} to Level {:d}")), FormatInteger(remainingExperience), nextLevel),
-	    /*force=*/true);
+	const uint32_t previousExperienceThreshold = GetNextExperienceThresholdForLevel(myPlayer.getCharacterLevel() - 1);
+	if (nextExperienceThreshold <= previousExperienceThreshold)
+		return;
+
+	const uint32_t currentExperience = std::clamp(myPlayer._pExperience, previousExperienceThreshold, nextExperienceThreshold);
+	const uint32_t remainingExperience = nextExperienceThreshold - currentExperience;
+	const uint32_t experienceForLevel = nextExperienceThreshold - previousExperienceThreshold;
+	SpeakText(fmt::format("{:d}%", ComputePercentage(remainingExperience, experienceForLevel)), /*force=*/true);
 }
 
 std::string BuildCurrentLocationForSpeech()
